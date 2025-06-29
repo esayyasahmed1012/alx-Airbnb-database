@@ -39,6 +39,19 @@ CREATE TABLE  if not exists properties(
   CONSTRAINT valid_name CHECK (name <> ''),
   CONSTRAINT valid_description CHECK (description <> '')
 );
+-- Trigger to update the updated_at field on properties table
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_properties_updated_at
+BEFORE UPDATE ON properties
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at();
 
 CREATE TABLE if not exists bookings (
   booking_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -60,6 +73,8 @@ CREATE TABLE if not exits payments (
   payment_method payment_method NOT NULL
 );
 
+
+
 CREATE TABLE if exits reviews (
   review_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES properties(property_id) ON DELETE CASCADE,
@@ -70,6 +85,7 @@ CREATE TABLE if exits reviews (
   CONSTRAINT valid_comment CHECK (comment <> '')
 );
 
+
 CREATE TABLE if not exits messages (
   message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -78,3 +94,10 @@ CREATE TABLE if not exits messages (
   sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT valid_message_body CHECK (message_body <> '')
 );
+
+CREATE INDEX IF NOT EXISTS "idx_user_email" ON "users" ("email");
+CREATE INDEX IF NOT EXISTS "idx_property_location" ON "properties" ("location");
+CREATE INDEX IF NOT EXISTS "idx_property_host" ON "properties" ("host_id");
+CREATE INDEX IF NOT EXISTS "idx_booking_guest" ON "bookings" ("user_id");
+CREATE INDEX IF NOT EXISTS "idx_booking_property" ON "bookings" ("property_id");
+CREATE INDEX IF NOT EXISTS "idx_payment_booking" ON "payments" ("booking_id");
