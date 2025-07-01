@@ -3,7 +3,6 @@ CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'canceled');
 CREATE TYPE payment_method AS ENUM ('credit_card', 'paypal', 'stripe');
 
 
-
 CREATE TABLE if not exists users (
   user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name VARCHAR NOT NULL,
@@ -17,16 +16,6 @@ CREATE TABLE if not exists users (
 );
 
 
-CREATE TABLE IF NOT EXISTS "locations" (
-  "location_id" uuid PRIMARY KEY,
-  "country" varchar NOT NULL,
-  "state" varchar,
-  "city" varchar,
-  "postal_code" varchar,
-  "latitude" decimal NOT NULL,
-  "longitude" decimal NOT NULL
-);
-
 CREATE TABLE  if not exists properties(
   property_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   host_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -39,6 +28,18 @@ CREATE TABLE  if not exists properties(
   CONSTRAINT valid_name CHECK (name <> ''),
   CONSTRAINT valid_description CHECK (description <> '')
 );
+
+
+CREATE TABLE IF NOT EXISTS "locations" (
+  "location_id" uuid PRIMARY KEY,
+  "country" varchar NOT NULL,
+  "state" varchar,
+  "city" varchar,
+  "postal_code" varchar,
+  "latitude" decimal NOT NULL,
+  "longitude" decimal NOT NULL
+);
+
 -- Trigger to update the updated_at field on properties table
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -75,7 +76,7 @@ CREATE TABLE if not exits payments (
 
 
 
-CREATE TABLE if exits reviews (
+CREATE TABLE if not exits reviews (
   review_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES properties(property_id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -101,3 +102,6 @@ CREATE INDEX IF NOT EXISTS "idx_property_host" ON "properties" ("host_id");
 CREATE INDEX IF NOT EXISTS "idx_booking_guest" ON "bookings" ("user_id");
 CREATE INDEX IF NOT EXISTS "idx_booking_property" ON "bookings" ("property_id");
 CREATE INDEX IF NOT EXISTS "idx_payment_booking" ON "payments" ("booking_id");
+
+COMMENT ON COLUMN "properties"."updated_at" IS 'On Update set `now()'
+COMMENT ON COLUMN "reviews"."rating" IS '1 < value < 5';
