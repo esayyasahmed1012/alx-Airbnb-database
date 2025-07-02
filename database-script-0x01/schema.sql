@@ -2,8 +2,8 @@ CREATE TYPE role AS ENUM ('guest', 'host', 'admin');
 CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'canceled');
 CREATE TYPE payment_method AS ENUM ('credit_card', 'paypal', 'stripe');
 
-
-CREATE TABLE if not exists users (
+-- Users table: Stores user information
+CREATE TABLE IF NOT EXISTS users (
   user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name VARCHAR NOT NULL,
   last_name VARCHAR NOT NULL,
@@ -14,34 +14,38 @@ CREATE TABLE if not exists users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT valid_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
+COMMENT ON TABLE users IS 'Stores user data for authentication and authorization';
 
+-- Locations table: Stores geographical information
+CREATE TABLE IF NOT EXISTS "locations" (
+  "location_id" UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- Added DEFAULT
+  "country" VARCHAR NOT NULL,
+  "state" VARCHAR,
+  "city" VARCHAR,
+  "postal_code" VARCHAR,
+  "latitude" DECIMAL NOT NULL,
+  "longitude" DECIMAL NOT NULL
+);
+COMMENT ON TABLE "locations" IS 'Stores geographical details for property locations';
 
-CREATE TABLE  if not exists properties(
+-- Properties table: Stores property details
+CREATE TABLE IF NOT EXISTS properties (
   property_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   host_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   name VARCHAR NOT NULL,
   description TEXT NOT NULL,
-  location gen_random_uuid() ,
+  location_id UUID NOT NULL REFERENCES "locations"("location_id") ON DELETE CASCADE, -- Consistent quoting
   pricepernight DECIMAL NOT NULL CHECK (pricepernight > 0),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT valid_name CHECK (name <> ''),
   CONSTRAINT valid_description CHECK (description <> '')
 );
+COMMENT ON TABLE properties IS 'Stores details of properties listed for booking';
+COMMENT ON COLUMN properties.updated_at IS 'On Update set now()';
 
-
-CREATE TABLE IF NOT EXISTS "locations" (
-  "location_id" uuid PRIMARY KEY,
-  "country" varchar NOT NULL,
-  "state" varchar,
-  "city" varchar,
-  "postal_code" varchar,
-  "latitude" decimal NOT NULL,
-  "longitude" decimal NOT NULL
-);
-
--- Trigger to update the updated_at field on properties table
-CREATE OR REPLACE FUNCTION update_updated_at()
+-- Trigger to update properties.updated_at
+CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = CURRENT_TIMESTAMP;
@@ -49,12 +53,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_update_properties_updated_at
+CREATE TRIGGER update_properties_timestamp
 BEFORE UPDATE ON properties
 FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
+EXECUTE FUNCTION update_timestamp();
 
-CREATE TABLE if not exists bookings (
+-- Bookings table: Stores booking details
+CREATE TABLE IF NOT EXISTS bookings (
   booking_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES properties(property_id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -65,18 +70,20 @@ CREATE TABLE if not exists bookings (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT valid_dates CHECK (start_date < end_date)
 );
+COMMENT ON TABLE bookings IS 'Stores booking details linking users and properties';
 
-CREATE TABLE if not exits payments (
+-- Payments table: Stores payment details
+CREATE TABLE IF NOT EXISTS payments (
   payment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id UUID NOT NULL UNIQUE REFERENCES bookings(booking_id) ON DELETE CASCADE,
   amount DECIMAL NOT NULL CHECK (amount > 0),
   payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   payment_method payment_method NOT NULL
 );
+COMMENT ON TABLE payments IS 'Stores payment details for bookings';
 
-
-
-CREATE TABLE if not exits reviews (
+-- Reviews table: Stores property reviews
+CREATE TABLE IF NOT EXISTS reviews (
   review_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES properties(property_id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -85,9 +92,11 @@ CREATE TABLE if not exits reviews (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT valid_comment CHECK (comment <> '')
 );
+COMMENT ON TABLE reviews IS 'Stores user reviews and ratings for properties';
+COMMENT ON COLUMN reviews.rating IS 'Value between 1 and 5';
 
-
-CREATE TABLE if not exits messages (
+-- Messages table: Stores user messages
+CREATE TABLE IF NOT EXISTS messages (
   message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   recipient_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -95,13 +104,12 @@ CREATE TABLE if not exits messages (
   sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT valid_message_body CHECK (message_body <> '')
 );
+COMMENT ON TABLE messages IS 'Stores messages between users';
 
+-- Indexes 
 CREATE INDEX IF NOT EXISTS "idx_user_email" ON "users" ("email");
-CREATE INDEX IF NOT EXISTS "idx_property_location" ON "properties" ("location");
+CREATE INDEX IF NOT EXISTS "idx_property_location" ON "properties" ("location_id"); -- Fixed column name
 CREATE INDEX IF NOT EXISTS "idx_property_host" ON "properties" ("host_id");
 CREATE INDEX IF NOT EXISTS "idx_booking_guest" ON "bookings" ("user_id");
 CREATE INDEX IF NOT EXISTS "idx_booking_property" ON "bookings" ("property_id");
 CREATE INDEX IF NOT EXISTS "idx_payment_booking" ON "payments" ("booking_id");
-
-COMMENT ON COLUMN "properties"."updated_at" IS 'On Update set `now()'
-COMMENT ON COLUMN "reviews"."rating" IS '1 < value < 5';
