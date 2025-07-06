@@ -6,7 +6,7 @@
 -- Before Indexing
 EXPLAIN ANALYZE
 SELECT * FROM users
-WHERE email = 'ernest.wambua@example.com';
+WHERE email = 'alice.smith@email.com';
 
 -- Create Index
 CREATE INDEX idx_users_email ON users(email);
@@ -14,15 +14,15 @@ CREATE INDEX idx_users_email ON users(email);
 -- After Indexing
 EXPLAIN ANALYZE
 SELECT * FROM users
-WHERE email = 'ernest.wambua@example.com';
+WHERE email = 'alice.smith@email.com';
 ```
 
 ## Performance Analysis
 
 **Without Index**
 
-![without index](without_index.png)
+![without index](before_indexing.PNG)
 
 **With Index**
 
-![with index](with_index.png)
+![with index](after_indexing.PNG)
